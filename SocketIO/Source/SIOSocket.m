@@ -76,10 +76,11 @@ static NSString *SIOMD5(NSString *string) {
         NSLog(@"%@", [NSThread callStackSymbols]);
     }];
 
+    __weak typeof(socket) weakSocket = socket;
     socket.javascriptContext[@"window"][@"onload"] = ^() {
-        socket.thread = [NSThread currentThread];
-        [socket.javascriptContext evaluateScript: socket_io_js];
-        [socket.javascriptContext evaluateScript: blob_factory_js];
+        weakSocket.thread = [NSThread currentThread];
+        [weakSocket.javascriptContext evaluateScript: socket_io_js];
+        [weakSocket.javascriptContext evaluateScript: blob_factory_js];
         
         NSString *socketConstructor = socket_io_js_constructor(hostURL,
             reconnectAutomatically,
@@ -90,15 +91,14 @@ static NSString *SIOMD5(NSString *string) {
             transports
         );
 
-        socket.javascriptContext[@"objc_socket"] = [socket.javascriptContext evaluateScript: socketConstructor];
-        if (![socket.javascriptContext[@"objc_socket"] toObject]) {
+        weakSocket.javascriptContext[@"objc_socket"] = [weakSocket.javascriptContext evaluateScript: socketConstructor];
+        if (![weakSocket.javascriptContext[@"objc_socket"] toObject]) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 response(nil);
             });
         }
 
         // Responders
-        __weak typeof(socket) weakSocket = socket;
         socket.javascriptContext[@"objc_onConnect"] = ^() {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (weakSocket.onConnect)
